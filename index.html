@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FilmLab Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="filmlab.css">
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <nav class="navbar">
+    <span class="logo">FILM<span>LAB</span></span>
+    <span id="statusPill" class="status-pill">NO FILM</span>
+  </nav>
+
+  <!-- ── Workspace ── -->
+  <div class="workspace">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🎞</div>
+      <span class="empty-label">UPLOAD NEGATIVE</span>
+    </div>
+    <canvas id="glCanvas"></canvas>
+    <canvas id="histCanvas" width="100" height="50"></canvas>
+  </div>
+
+  <!-- ── Controls ── -->
+  <div class="controls">
+
+    <!-- 按钮行 -->
+    <div class="actions-bar">
+      <label class="btn btn-upload">
+        📂 上传底片
+        <input type="file" id="fileInput" accept="image/*">
+      </label>
+      <button id="btnReAnalyze" class="btn btn-reanalyze">⟳ 重分析</button>
+      <button id="btnSave" class="btn btn-save">导出</button>
+    </div>
+
+    <!-- Tab 栏 -->
+    <div class="tab-bar">
+      <button class="tab active" data-tab="basic">BASIC</button>
+      <button class="tab" data-tab="film">FILM</button>
+      <button class="tab" data-tab="debug">DEBUG</button>
+    </div>
+
+    <!-- ── BASIC 面板 ── -->
+    <div id="panelBasic" class="panel">
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">曝光 EXPOSURE</span>
+          <span class="slider-val" id="vExp">0.00</span>
+        </div>
+        <p class="slider-tip">整体提亮或压暗画面。+1 = 亮一挡，-1 = 暗一挡（EV 单位，乘法调整）</p>
+        <input type="range" id="slExp" min="-2.5" max="2.5" step="0.05" value="0">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">对比度 CONTRAST</span>
+          <span class="slider-val" id="vCon">1.00</span>
+        </div>
+        <p class="slider-tip">拉伸亮暗差距。&lt;1 画面更平，&gt;1 更通透有层次</p>
+        <input type="range" id="slCon" min="0.4" max="2.0" step="0.01" value="1.0">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">色温 WARMTH</span>
+          <span class="slider-val" id="vTemp">0</span>
+        </div>
+        <p class="slider-tip">正值偏暖（红/橙），负值偏冷（蓝）。修正灯光或场景色调</p>
+        <input type="range" id="slTemp" min="-60" max="60" step="1" value="0">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">色调 TINT</span>
+          <span class="slider-val" id="vTint">0</span>
+        </div>
+        <p class="slider-tip">正值偏绿，负值偏品红。通常用于补偿荧光灯偏色</p>
+        <input type="range" id="slTint" min="-60" max="60" step="1" value="0">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">饱和度 SATURATION</span>
+          <span class="slider-val" id="vSat">1.15</span>
+        </div>
+        <p class="slider-tip">颜色鲜艳程度。0 = 黑白，1 = 原始，>1.5 色彩更浓郁</p>
+        <input type="range" id="slSat" min="0" max="2.0" step="0.01" value="1.15">
+      </div>
+
+      <button id="btnReset" class="reset-btn">↺ RESET ALL</button>
+    </div>
+
+    <!-- ── FILM 面板 ── -->
+    <div id="panelFilm" class="panel" style="display:none">
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">胶片 GAMMA</span>
+          <span class="slider-val" id="vGamma">1.80</span>
+        </div>
+        <p class="slider-tip">模拟胶片感光特性曲线（H&amp;D 曲线趾部）。较大值提亮暗部细节，过大会让画面发灰发雾</p>
+        <input type="range" id="slGamma" min="1.0" max="3.5" step="0.05" value="1.8">
+      </div>
+
+      <div class="info-box">
+        <div class="info-box-title">色罩基底 ORANGE MASK</div>
+        <p class="info-box-text">
+          彩色负片有一层橙色基底（Orange Mask），补偿 CMY 染料的副吸收色偏。
+          下方滑块是自动分析的色罩 RGB 透过率，数值越低说明该通道片基越厚。
+          正常特征 R &gt; G &gt; B。若转正后偏色，可手动微调。
+        </p>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">色罩 R（红通道基底）</span>
+          <span class="slider-val val-r" id="vMR">—</span>
+        </div>
+        <p class="slider-tip">片基在红通道的透过率。彩色负片通常最高（橙色基底含大量红色）</p>
+        <input type="range" id="slMR" min="0.3" max="0.999" step="0.002" value="0.95">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">色罩 G（绿通道基底）</span>
+          <span class="slider-val val-g" id="vMG">—</span>
+        </div>
+        <p class="slider-tip">片基在绿通道的透过率。调低可减少转正后的绿色偏色</p>
+        <input type="range" id="slMG" min="0.3" max="0.999" step="0.002" value="0.85">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">色罩 B（蓝通道基底）</span>
+          <span class="slider-val val-b" id="vMB">—</span>
+        </div>
+        <p class="slider-tip">片基在蓝通道的透过率。通常最低，画面偏黄时可适当降低此值</p>
+        <input type="range" id="slMB" min="0.3" max="0.999" step="0.002" value="0.75">
+      </div>
+    </div>
+
+    <!-- ── DEBUG 面板 ── -->
+    <div id="panelDebug" class="panel" style="display:none">
+      <div class="debug-grid">
+        <span class="debug-key">FILM_TYPE</span>      <span class="debug-val accent" id="dbType">—</span>
+        <span class="debug-key">MASK_RAW</span>       <span class="debug-val accent" id="dbMaskRaw">—</span>
+        <span class="debug-key">MASK_ADJ</span>       <span class="debug-val accent" id="dbMaskAdj">—</span>
+        <span class="debug-key">BASE_DENSITY</span>   <span class="debug-val blue"   id="dbDBase">—</span>
+        <span class="debug-key">DENSITY_SCALE</span>  <span class="debug-val blue"   id="dbDScale">—</span>
+        <span class="debug-key">WB_GAINS</span>       <span class="debug-val green"  id="dbWB">—</span>
+        <span class="debug-key">CROSS_DIAG</span>     <span class="debug-val blue"   id="dbCross">—</span>
+      </div>
+    </div>
+
+  </div><!-- /controls -->
+
+  <!-- ── Save Modal ── -->
+  <div id="saveModal" class="modal">
+    <button id="closeModal" class="modal-close">✕</button>
+    <img id="saveImg" src="" alt="长按保存" class="modal-img">
+    <p class="modal-tip">👆 长按图片 → 存储到照片</p>
+    <p class="modal-sub">iOS / ANDROID UNIVERSAL</p>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast"></div>
+
+  <canvas id="cpuCanvas" style="display:none"></canvas>
+
+  <script type="module" src="glRenderer.js"></script>
+  <script type="module" src="filmAnalyzer.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
